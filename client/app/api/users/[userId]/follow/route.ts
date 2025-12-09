@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import UserModel from '@/lib/db/models/UserModel';
+import { UserService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 
 export async function PUT(
@@ -16,18 +16,18 @@ export async function PUT(
     const currentUserId = authUser.id;
 
     // Check if already following
-    const isFollowing = await UserModel.isFollowing(currentUserId, userId);
+    const isFollowing = await UserService.isFollowing(currentUserId, userId);
 
     if (isFollowing) {
       // Unfollow
-      await UserModel.unfollow(currentUserId, userId);
+      await UserService.unfollow(currentUserId, userId);
       return NextResponse.json({
         message: 'Unfollowed successfully',
         isFollowing: false,
       });
     } else {
       // Follow
-      await UserModel.follow(currentUserId, userId);
+      await UserService.follow(currentUserId, userId);
       return NextResponse.json({
         message: 'Followed successfully',
         isFollowing: true,

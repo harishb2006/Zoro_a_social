@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import PostModel from '@/lib/db/models/PostModel';
+import { PostService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
-import pool from '@/lib/db/postgres';
 
 export async function GET(
   req: NextRequest,
@@ -11,7 +10,7 @@ export async function GET(
     const authUser = authenticate(req);
     const { id } = await params;
     
-    const post = await PostModel.findById(id);
+    const post = await PostService.findById(id);
     
     if (!post) {
       return NextResponse.json({ message: 'Post not found' }, { status: 404 });
@@ -37,21 +36,19 @@ export async function DELETE(
     const { id } = await params;
 
     // Check if post exists and belongs to user
-    const result = await pool.query(
-      'SELECT created_by FROM posts WHERE id = $1',
-      [id]
-    );
+    const post = await PostService.findById(id);
 
-    if (result.rows.length === 0) {
+    if (!post) {
       return NextResponse.json({ message: 'Post not found' }, { status: 404 });
     }
 
-    if (result.rows[0].created_by !== authUser.id) {
+    const createdBy = post.created_by?._id?.toString() || post.created_by?.toString();
+    if (createdBy !== authUser.id) {
       return NextResponse.json({ message: 'Unauthorized to delete this post' }, { status: 403 });
     }
 
     // Delete post (cascade will handle related data)
-    await pool.query('DELETE FROM posts WHERE id = $1', [id]);
+    await PostService.delete(id);
 
     return NextResponse.json({ message: 'Post deleted successfully' });
   } catch (error: any) {
@@ -74,29 +71,25 @@ export async function PUT(
     const { caption, location, tags } = await req.json();
 
     // Check if post exists and belongs to user
-    const checkResult = await pool.query(
-      'SELECT created_by FROM posts WHERE id = $1',
-      [id]
-    );
+    const post = await PostService.findById(id);
 
-    if (checkResult.rows.length === 0) {
+    if (!post) {
       return NextResponse.json({ message: 'Post not found' }, { status: 404 });
     }
 
-    if (checkResult.rows[0].created_by !== authUser.id) {
+    const createdBy = post.created_by?._id?.toString() || post.created_by?.toString();
+    if (createdBy !== authUser.id) {
       return NextResponse.json({ message: 'Unauthorized to edit this post' }, { status: 403 });
     }
 
     // Update post
-    const result = await pool.query(
-      `UPDATE posts 
-       SET caption = $1, location = $2, tags = $3, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING *`,
-      [caption || '', location || '', tags || [], id]
-    );
+    const updatedPost = await PostService.update(id, {
+      caption: caption || '',
+      location: location || '',
+      tags: tags || '',
+    });
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(updatedPost);
   } catch (error: any) {
     console.error('Update post error:', error);
     return NextResponse.json({ message: error.message }, { status: 500 });

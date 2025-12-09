@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import MessageModel from '@/lib/db/models/MessageModel';
+import { MessageService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 
 // GET /api/messages - Get all conversations
@@ -10,18 +10,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const rawConversations = await MessageModel.getConversations(user.id);
+    const rawConversations = await MessageService.getConversations(user.id);
     
     // Transform data to match frontend interface
     const conversations = rawConversations.map((conv: any) => ({
-      conversationId: conv.id,
+      conversationId: conv.conversation_id,
       otherUser: {
         id: conv.other_user_id,
-        username: conv.other_username,
-        profilePic: conv.other_profile_pic
+        username: conv.other_user_username,
+        profilePic: conv.other_user_profile_picture
       },
-      lastMessage: conv.last_message,
-      lastMessageAt: conv.last_message_time,
+      lastMessage: conv.message,
+      lastMessageAt: conv.created_at,
       unreadCount: conv.is_read ? 0 : (conv.last_message_sender_id !== user.id ? 1 : 0)
     }));
     
@@ -55,18 +55,17 @@ export async function POST(req: NextRequest) {
 
     console.log('Sending message from', user.id, 'to', receiverId);
 
-    const message = await MessageModel.sendMessage({
-      senderId: user.id,
-      receiverId,
-      content: content.trim()
-    });
+    // Create conversation ID (smaller ID first for consistency)
+    const ids = [user.id, receiverId].sort();
+    const conversationId = `${ids[0]}-${ids[1]}`;
 
-    if (!message) {
-      return NextResponse.json(
-        { message: 'Cannot send message. You may be blocked.' },
-        { status: 403 }
-      );
-    }
+    const message = await MessageService.create({
+      sender_id: user.id,
+      receiver_id: receiverId,
+      message: content.trim(),
+      conversation_id: conversationId,
+      is_read: false
+    });
 
     console.log('Message sent successfully:', message);
     return NextResponse.json(message, { status: 201 });

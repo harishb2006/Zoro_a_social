@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import UserModel from '@/lib/db/models/UserModel';
+import { UserService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
+import User from '@/lib/db/models/User';
+import connectDB from '@/lib/db/mongodb';
 
 export async function GET(req: NextRequest) {
   try {
+    await connectDB();
+    
     let currentUserId: string | undefined;
     try {
       const user = authenticate(req);
@@ -12,18 +16,18 @@ export async function GET(req: NextRequest) {
       // User not authenticated
     }
 
-    const allUsers = await UserModel.findAll();
+    const allUsers = await User.find().select('_id username profile_picture');
 
     const usersWithFollowStatus = await Promise.all(
       allUsers
-        .filter(user => user.id.toString() !== currentUserId) // Exclude current user
-        .map(async (user) => {
+        .filter((user: any) => user._id.toString() !== currentUserId) // Exclude current user
+        .map(async (user: any) => {
           const isFollowing = currentUserId
-            ? await UserModel.isFollowing(currentUserId, user.id)
+            ? await UserService.isFollowing(currentUserId, user._id.toString())
             : false;
           
           return {
-            id: user.id.toString(),
+            id: user._id.toString(),
             username: user.username,
             isFollowing,
           };

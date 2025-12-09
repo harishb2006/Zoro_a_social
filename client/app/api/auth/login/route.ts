@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import UserModel from '@/lib/db/models/UserModel';
+import connectDB from '@/lib/db/mongodb';
+import User from '@/lib/db/models/User';
 import { generateToken } from '@/lib/auth/jwt';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB();
+    
     const body = await req.json();
     const { email, password } = body;
 
@@ -17,7 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await UserModel.findByEmail(normalizedEmail);
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return NextResponse.json(
         { message: 'Invalid email or password' },
@@ -25,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isMatch = await UserModel.matchPassword(user, password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return NextResponse.json(
         { message: 'Invalid email or password' },
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = generateToken({
-      id: user.id.toString(),
+      id: user._id.toString(),
       username: user.username,
       email: user.email,
     });
@@ -42,7 +46,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json(
       {
         message: 'Login successful',
-        user: { id: user.id.toString(), username: user.username },
+        user: { id: user._id.toString(), username: user.username },
       },
       { status: 200 }
     );

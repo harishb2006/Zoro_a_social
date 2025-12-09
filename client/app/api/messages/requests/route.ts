@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import MessageModel from '@/lib/db/models/MessageModel';
+import { MessageService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 
 // GET /api/messages/requests - Get message requests
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const rawRequests = await MessageModel.getMessageRequests(user.id);
+    const rawRequests = await MessageService.getMessageRequests(user.id);
     
     // Transform data to match frontend interface
     const requests = rawRequests.map((req: any) => ({

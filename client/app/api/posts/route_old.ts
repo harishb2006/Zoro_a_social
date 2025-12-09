@@ -1,46 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PostService, UserService } from '@/lib/db/services';
+import { PostModel } from '@/lib/db/models/PostModel';
+import { UserModel } from '@/lib/db/models/UserModel';
 import { handleFileUploads } from '@/lib/utils/file-upload';
 import { authenticate } from '@/lib/auth/middleware';
 
 // Format post for response
 async function formatPost(post: any, userId?: string) {
-  const postId = post._id?.toString() || post.id;
-  const createdBy = post.created_by?._id?.toString() || post.created_by?.toString() || post.created_by;
-  
   const likedByUser = userId 
-    ? await PostService.hasLiked(postId, userId)
+    ? await PostModel.hasLiked(post.id, parseInt(userId))
     : false;
   
   const savedByUser = userId 
-    ? await PostService.hasSaved(postId, userId)
+    ? await PostModel.hasSaved(post.id, parseInt(userId))
     : false;
 
-  // Get creator info if not populated
-  let creator = post.created_by;
-  if (typeof creator === 'string') {
-    creator = await UserService.findById(creator);
-  }
+  // Get creator info
+  const creator = await UserModel.findById(post.created_by);
   
   const isFollowing = userId && creator
-    ? await UserService.isFollowing(userId, creator._id?.toString() || creator.id?.toString())
+    ? await UserModel.isFollowing(userId, creator.id)
     : false;
 
   return {
-    id: postId,
-    caption: post.caption || '',
-    location: post.location || '',
-    tags: post.tags || '',
-    imageUrl: post.imageurl || null,
-    videoUrl: post.videourl || null,
+    id: post.id.toString(),
+    caption: post.caption,
+    location: post.location,
+    tags: post.tags,
+    imageUrl: post.image_url,
+    videoUrl: post.video_url,
     likes: post.likes ?? 0,
     saves: post.saves ?? 0,
-    created_by: createdBy,
+    created_by: post.created_by.toString(),
     creatorUsername: creator?.username || 'User',
     likedByCurrentUser: likedByUser,
     savedByCurrentUser: savedByUser,
     isFollowingCreator: isFollowing,
-    isOwnPost: userId ? userId === createdBy : false,
+    isOwnPost: userId ? userId === post.created_by.toString() : false,
   };
 }
 
@@ -63,15 +58,15 @@ export async function GET(req: NextRequest) {
 
     let posts;
     if (savedOnly && currentUserId) {
-      posts = await PostService.findSavedByUser(currentUserId);
+      posts = await PostModel.findSavedByUser(parseInt(currentUserId));
     } else if (followingOnly && currentUserId) {
-      posts = await PostService.findByFollowing(currentUserId);
+      posts = await PostModel.findByFollowing(parseInt(currentUserId));
     } else {
-      posts = await PostService.findAll();
+      posts = await PostModel.findAll();
     }
 
     const formattedPosts = await Promise.all(
-      posts.map((post: any) => formatPost(post, currentUserId))
+      posts.map(post => formatPost(post, currentUserId))
     );
 
     return NextResponse.json(formattedPosts);
@@ -98,7 +93,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const creator = await UserService.findById(created_by);
+    const creator = await UserModel.findById(parseInt(created_by));
     if (!creator) {
       return NextResponse.json(
         { message: 'Invalid user ID' },
@@ -108,11 +103,11 @@ export async function POST(req: NextRequest) {
 
     const { image, video } = await handleFileUploads(formData);
 
-    const post = await PostService.create({
+    const post = await PostModel.create({
       caption,
       location,
       tags,
-      created_by,
+      created_by: parseInt(created_by),
       imageurl: image || undefined,
       videourl: video || undefined,
     });
@@ -127,16 +122,19 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error: any) {
-    console.error('Post creation error:', error);
-    return NextResponse.json({ message: error.message }, { status: 500 });
+    console.error('Error creating post:', error);
+    return NextResponse.json(
+      { message: 'Internal Server Error', error: error.message },
+      { status: 500 }
+    );
   }
 }
 
-// PUT /api/posts - Update existing post
+// PUT /api/posts - Update post
 export async function PUT(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const postId = formData.get('postId') as string;
+    const postId = formData.get('_id') as string;
 
     if (!postId) {
       return NextResponse.json(
@@ -159,10 +157,10 @@ export async function PUT(req: NextRequest) {
     const { image, video } = await handleFileUploads(formData);
 
     const updateData: any = { caption, location, tags };
-    if (image) updateData.imageurl = image;
-    if (video) updateData.videourl = video;
+    if (image) updateData.image_url = image;
+    if (video) updateData.video_url = video;
 
-    const post = await PostService.update(postId, updateData);
+    const post = await PostModel.update(parseInt(postId), updateData);
 
     if (!post) {
       return NextResponse.json(
@@ -181,7 +179,10 @@ export async function PUT(req: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('Post update error:', error);
-    return NextResponse.json({ message: error.message }, { status: 500 });
+    console.error('Error updating post:', error);
+    return NextResponse.json(
+      { message: 'Internal Server Error', error: error.message },
+      { status: 500 }
+    );
   }
 }

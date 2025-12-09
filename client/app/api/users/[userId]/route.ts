@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import UserModel from '@/lib/db/models/UserModel';
-import PostModel from '@/lib/db/models/PostModel';
+import { UserService, PostService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 import { handleFileUploads } from '@/lib/utils/file-upload';
 
@@ -10,32 +9,32 @@ export async function GET(
 ) {
   try {
     const { userId } = await params;
-    const user = await UserModel.findById(userId);
+    const user = await UserService.findById(userId);
 
     if (!user) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
     // Get user's posts
-    const posts = await PostModel.findByUserId(userId);
+    const posts = await PostService.findByUserId(userId);
     
     // Get followers and following
-    const following = await UserModel.getFollowing(userId);
-    const followers = await UserModel.getFollowers(userId);
+    const following = await UserService.getFollowing(userId);
+    const followers = await UserService.getFollowers(userId);
 
     return NextResponse.json({
-      id: user.id.toString(),
+      id: user._id.toString(),
       username: user.username,
       bio: user.bio || '',
-      profilePic: user.profile_pic || null,
+      profilePic: user.profile_picture || null,
       followersCount: followers.length,
       followingCount: following.length,
       following,
       followers,
-      posts: posts.map(post => ({
-        id: post.id.toString(),
-        imageUrl: post.image_url,
-        videoUrl: post.video_url,
+      posts: posts.map((post: any) => ({
+        id: post._id.toString(),
+        imageUrl: post.imageurl,
+        videoUrl: post.videourl,
         likes: post.likes || 0,
         saves: post.saves || 0,
       })),
@@ -79,10 +78,10 @@ export async function PUT(
     // Handle profile picture upload
     const { image } = await handleFileUploads(formData);
     if (image) {
-      updateData.profile_pic = image;
+      updateData.profile_picture = image;
     }
 
-    const user = await UserModel.update(userId, updateData);
+    const user = await UserService.update(userId, updateData);
 
     if (!user) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
@@ -91,10 +90,10 @@ export async function PUT(
     return NextResponse.json({
       message: 'Profile updated successfully',
       user: {
-        id: user.id.toString(),
+        id: user._id.toString(),
         username: user.username,
         bio: user.bio,
-        profilePic: user.profile_pic,
+        profilePic: user.profile_picture,
       },
     });
   } catch (error: any) {

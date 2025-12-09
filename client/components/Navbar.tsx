@@ -22,7 +22,7 @@ import { API_ROUTES } from '@/lib/constants';
 export default function Sidebar() {
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
 
   const navigate = (path: string) => {
     router.push(path);
@@ -47,7 +47,6 @@ export default function Sidebar() {
     { icon: Compass, label: 'Explore', path: '/explore' },
     { icon: Film, label: 'Reels', path: '/home' },
     { icon: MessageCircle, label: 'Messages', path: '/messages' },
-    { icon: Heart, label: 'Notifications', path: '/home' },
     { icon: PlusSquare, label: 'Create', path: '/form' },
     { icon: Bookmark, label: 'Saved', path: '/saved' },
   ];
