@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticate } from '@/lib/auth/middleware';
-import UserModel from '@/lib/db/models/UserModel';
+import { UserService } from '@/lib/db/services';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     console.log('Fetching following for user:', authUser.id);
 
     // Get the list of users that the current user follows
-    const followingUsers = await UserModel.getFollowingWithDetails(authUser.id);
+    const followingUsers = await UserService.getFollowingWithDetails(authUser.id);
 
     console.log('Found following users:', followingUsers.length);
 

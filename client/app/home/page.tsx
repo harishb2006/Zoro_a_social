@@ -40,8 +40,15 @@ export default function HomePage() {
   useEffect(() => {
     if (hasFollowing !== null) {
       fetchCultures();
+      
+      // Real-time polling for posts every 15 seconds
+      const interval = setInterval(() => {
+        fetchCultures(selectedUser);
+      }, 15000);
+      
+      return () => clearInterval(interval);
     }
-  }, [hasFollowing]);
+  }, [hasFollowing, selectedUser]);
 
   const checkFollowingStatus = async () => {
     if (!user) {

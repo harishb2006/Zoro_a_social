@@ -55,6 +55,10 @@ export default function PostCard({
       }
     };
     fetchComments();
+    
+    // Real-time polling for comments every 10 seconds
+    const interval = setInterval(fetchComments, 10000);
+    return () => clearInterval(interval);
   }, [id]);
 
   const handleLike = async () => {
@@ -62,16 +66,21 @@ export default function PostCard({
       alert('Please login to like posts.');
       return;
     }
-    if (liked) return;
+
+    // Optimistic update
+    const wasLiked = liked;
+    const previousCount = likeCount;
+    
+    setLiked(!liked);
+    setLikeCount(liked ? Math.max(0, (likeCount ?? 0) - 1) : (likeCount ?? 0) + 1);
 
     try {
       await axios.put(API_ROUTES.likePost(id), {}, { withCredentials: true });
-      setLikeCount((prev) => (prev ?? 0) + 1);
-      setLiked(true);
     } catch (error: any) {
-      if (error.response?.data?.message === 'Already liked') {
-        setLiked(true);
-      }
+      // Revert on error
+      setLiked(wasLiked);
+      setLikeCount(previousCount);
+      console.error('Like error:', error);
     }
   };
 
@@ -82,16 +91,33 @@ export default function PostCard({
     }
     if (!commentText.trim()) return;
 
+    const tempComment: Comment = {
+      id: Date.now().toString(),
+      user_id: user.id,
+      username: user.username,
+      comment: commentText.trim(),
+      created_at: new Date().toISOString(),
+    };
+
+    // Optimistic update - add comment immediately
+    setComments(prev => [...prev, tempComment]);
+    const savedText = commentText;
+    setCommentText('');
+
     try {
       await axios.post(API_ROUTES.addComment(id), {
         item_id: id,
         user_id: user.id,
-        comment: commentText,
+        comment: savedText,
       }, { withCredentials: true });
-      setCommentText('');
+      
+      // Fetch fresh comments to get the real ID
       const res = await axios.get<Comment[]>(API_ROUTES.comments(id), { withCredentials: true });
       setComments(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
+      // Revert on error
+      setComments(prev => prev.filter(c => c.id !== tempComment.id));
+      setCommentText(savedText);
       alert('Failed to add comment.');
     }
   };

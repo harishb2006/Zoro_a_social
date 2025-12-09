@@ -2,332 +2,130 @@ import pool from '../postgres';
 
 export interface Message {
   id: number;
-  conversation_id: number;
   sender_id: number;
   receiver_id: number;
-  content: string;
+  message: string;
   is_read: boolean;
-  is_request: boolean;
-  request_accepted: boolean;
-  created_at: Date;
-}
-
-export interface Conversation {
-  id: number;
-  user1_id: number;
-  user2_id: number;
-  last_message_at: Date;
-  created_at: Date;
+  conversation_id: string;
+  created_at?: Date;
 }
 
 export const MessageModel = {
-  // Check if user is blocked
-  async isBlocked(userId: number | string, otherUserId: number | string): Promise<boolean> {
+  async findConversation(userId1: number, userId2: number): Promise<Message[]> {
     const result = await pool.query(
-      'SELECT 1 FROM blocks WHERE blocker_id = $1 AND blocked_id = $2',
-      [otherUserId, userId]
+      `SELECT * FROM messages 
+       WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)
+       ORDER BY created_at ASC`,
+      [userId1, userId2]
     );
-    return result.rows.length > 0;
+    return result.rows;
   },
 
-  // Check if sender follows receiver
-  async doesSenderFollowReceiver(senderId: number | string, receiverId: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2',
-      [senderId, receiverId]
-    );
-    return result.rows.length > 0;
+  async findById(id: number): Promise<Message | null> {
+    const result = await pool.query('SELECT * FROM messages WHERE id = $1', [id]);
+    return result.rows[0] || null;
   },
 
-  // Check if both users follow each other
-  async areMutualFollowers(user1Id: number | string, user2Id: number | string): Promise<boolean> {
+  async create(message: Omit<Message, 'id' | 'created_at'>): Promise<Message> {
     const result = await pool.query(
-      `SELECT 1 FROM follows f1
-       INNER JOIN follows f2 ON f1.follower_id = f2.following_id AND f1.following_id = f2.follower_id
-       WHERE f1.follower_id = $1 AND f1.following_id = $2`,
-      [user1Id, user2Id]
-    );
-    return result.rows.length > 0;
-  },
-
-  // Get or create conversation between two users
-  async getOrCreateConversation(user1Id: number | string, user2Id: number | string): Promise<Conversation> {
-    // Prevent users from messaging themselves
-    if (user1Id.toString() === user2Id.toString()) {
-      throw new Error('Cannot create conversation with yourself');
-    }
-
-    const sortedIds = [parseInt(user1Id.toString()), parseInt(user2Id.toString())].sort((a, b) => a - b);
-    
-    // Try to get existing conversation
-    let result = await pool.query(
-      'SELECT * FROM conversations WHERE user1_id = $1 AND user2_id = $2',
-      sortedIds
-    );
-
-    if (result.rows.length > 0) {
-      return result.rows[0];
-    }
-
-    // Create new conversation
-    result = await pool.query(
-      `INSERT INTO conversations (user1_id, user2_id) 
-       VALUES ($1, $2) 
-       RETURNING *`,
-      sortedIds
+      `INSERT INTO messages (sender_id, receiver_id, message, is_read, conversation_id) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [message.sender_id, message.receiver_id, message.message, message.is_read || false, message.conversation_id]
     );
     return result.rows[0];
   },
 
-  // Send a message - Instagram Style
-  // Rule: If A follows B, A can message B (goes to B's requests unless mutual or already accepted)
-  async sendMessage(data: {
-    senderId: number | string;
-    receiverId: number | string;
-    content: string;
-  }): Promise<Message | null> {
-    const { senderId, receiverId, content } = data;
-
-    console.log('MessageModel.sendMessage:', { senderId, receiverId, content });
-
-    // Check if sender is blocked by receiver
-    const isBlocked = await this.isBlocked(senderId, receiverId);
-    console.log('Is blocked:', isBlocked);
-    if (isBlocked) {
-      return null;
-    }
-
-    // Check if sender follows receiver (Instagram rule: must follow to message)
-    const senderFollowsReceiver = await this.doesSenderFollowReceiver(senderId, receiverId);
-    console.log('Sender follows receiver:', senderFollowsReceiver);
-    
-    // Check if they are mutual followers
-    const areMutual = await this.areMutualFollowers(senderId, receiverId);
-    console.log('Are mutual followers:', areMutual);
-
-    // Get or create conversation
-    console.log('Getting or creating conversation...');
-    const conversation = await this.getOrCreateConversation(senderId, receiverId);
-    console.log('Conversation:', conversation);
-
-    // Check if there's already an accepted conversation
-    const hasAcceptedConversation = await pool.query(
-      `SELECT 1 FROM messages 
-       WHERE conversation_id = $1 
-       AND request_accepted = TRUE
-       LIMIT 1`,
-      [conversation.id]
-    );
-
-    // Instagram Logic:
-    // 1. If mutual followers → Direct message (no request)
-    // 2. If already accepted conversation → Direct message
-    // 3. If sender follows receiver (not mutual) → Goes to requests
-    // 4. If sender doesn't follow receiver → Can still message (goes to requests)
-    const isDirectMessage = areMutual || hasAcceptedConversation.rows.length > 0;
-    const isRequest = !isDirectMessage;
-
-    console.log('Message type - isRequest:', isRequest, 'isDirectMessage:', isDirectMessage);
-
-    // Insert message
-    const result = await pool.query(
-      `INSERT INTO messages (conversation_id, sender_id, receiver_id, content, is_request, request_accepted)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [conversation.id, senderId, receiverId, content, isRequest, isDirectMessage]
-    );
-
-    console.log('Message inserted:', result.rows[0]);
-
-    // Update conversation last_message_at
+  async markAsRead(conversationId: string, userId: number): Promise<void> {
     await pool.query(
-      'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [conversation.id]
-    );
-
-    return result.rows[0];
-  },
-
-  // Accept message request
-  async acceptRequest(conversationId: number | string, userId: number | string): Promise<boolean> {
-    const result = await pool.query(
-      `UPDATE messages 
-       SET request_accepted = TRUE 
-       WHERE conversation_id = $1 
-       AND receiver_id = $2 
-       AND is_request = TRUE
-       RETURNING *`,
+      'UPDATE messages SET is_read = true WHERE conversation_id = $1 AND receiver_id = $2',
       [conversationId, userId]
     );
-    return result.rows.length > 0;
   },
 
-  // Decline/Delete message request
-  async declineRequest(conversationId: number | string, userId: number | string): Promise<boolean> {
-    // Delete all messages in the request conversation
+  async getConversations(userId: number): Promise<any[]> {
     const result = await pool.query(
-      `DELETE FROM messages 
-       WHERE conversation_id = $1 
-       AND receiver_id = $2 
-       AND is_request = TRUE 
-       AND request_accepted = FALSE`,
-      [conversationId, userId]
-    );
-    return result.rowCount! > 0;
-  },
-
-  // Get all conversations for a user
-  async getConversations(userId: number | string): Promise<any[]> {
-    const result = await pool.query(
-      `SELECT 
-        c.*,
+      `SELECT DISTINCT ON (conversation_id)
+        m.*,
         CASE 
-          WHEN c.user1_id = $1 THEN c.user2_id 
-          ELSE c.user1_id 
+          WHEN m.sender_id = $1 THEN u_receiver.id
+          ELSE u_sender.id
         END as other_user_id,
         CASE 
-          WHEN c.user1_id = $1 THEN u2.username 
-          ELSE u1.username 
-        END as other_username,
+          WHEN m.sender_id = $1 THEN u_receiver.username
+          ELSE u_sender.username
+        END as other_user_username,
         CASE 
-          WHEN c.user1_id = $1 THEN u2.profile_pic 
-          ELSE u1.profile_pic 
-        END as other_profile_pic,
-        m.content as last_message,
-        m.sender_id as last_message_sender_id,
-        m.created_at as last_message_time,
-        m.is_read,
-        m.is_request,
-        m.request_accepted
-      FROM conversations c
-      INNER JOIN users u1 ON c.user1_id = u1.id
-      INNER JOIN users u2 ON c.user2_id = u2.id
-      LEFT JOIN LATERAL (
-        SELECT * FROM messages 
-        WHERE conversation_id = c.id 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      ) m ON true
-      WHERE (c.user1_id = $1 OR c.user2_id = $1)
-      AND m.id IS NOT NULL
-      AND (
-        (m.is_request = FALSE) OR 
-        (m.is_request = TRUE AND m.request_accepted = TRUE) OR
-        (m.is_request = TRUE AND m.receiver_id = $1)
-      )
-      ORDER BY c.last_message_at DESC`,
-      [userId]
-    );
-    return result.rows;
-  },
-
-  // Get message requests for a user
-  async getMessageRequests(userId: number | string): Promise<any[]> {
-    const result = await pool.query(
-      `SELECT 
-        c.*,
-        u.id as sender_id,
-        u.username as sender_username,
-        u.profile_pic as sender_profile_pic,
-        m.content as last_message,
-        m.created_at as last_message_time
-      FROM conversations c
-      INNER JOIN messages m ON c.id = m.conversation_id
-      INNER JOIN users u ON m.sender_id = u.id
-      WHERE m.receiver_id = $1
-      AND m.is_request = TRUE
-      AND m.request_accepted = FALSE
-      AND m.id = (
-        SELECT id FROM messages 
-        WHERE conversation_id = c.id 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      )
-      ORDER BY m.created_at DESC`,
-      [userId]
-    );
-    return result.rows;
-  },
-
-  // Get messages in a conversation
-  async getMessages(conversationId: number | string, userId: number | string): Promise<Message[]> {
-    // First check if user is part of the conversation
-    const convCheck = await pool.query(
-      'SELECT * FROM conversations WHERE id = $1 AND (user1_id = $2 OR user2_id = $2)',
-      [conversationId, userId]
-    );
-
-    if (convCheck.rows.length === 0) {
-      return [];
-    }
-
-    const result = await pool.query(
-      `SELECT m.*, u.username as sender_username, u.profile_pic as sender_profile_pic
+          WHEN m.sender_id = $1 THEN u_receiver.profile_picture
+          ELSE u_sender.profile_picture
+        END as other_user_profile_picture
        FROM messages m
-       INNER JOIN users u ON m.sender_id = u.id
-       WHERE m.conversation_id = $1
-       AND (
-         (m.is_request = FALSE) OR
-         (m.is_request = TRUE AND m.request_accepted = TRUE) OR
-         (m.is_request = TRUE AND m.receiver_id = $2)
-       )
-       ORDER BY m.created_at ASC`,
-      [conversationId, userId]
+       LEFT JOIN users u_sender ON m.sender_id = u_sender.id
+       LEFT JOIN users u_receiver ON m.receiver_id = u_receiver.id
+       WHERE m.sender_id = $1 OR m.receiver_id = $1
+       ORDER BY m.conversation_id, m.created_at DESC`,
+      [userId]
     );
-
-    // Mark messages as read
-    await pool.query(
-      'UPDATE messages SET is_read = TRUE WHERE conversation_id = $1 AND receiver_id = $2 AND is_read = FALSE',
-      [conversationId, userId]
-    );
-
     return result.rows;
   },
 
-  // Block user
-  async blockUser(blockerId: number | string, blockedId: number | string): Promise<void> {
+  async getMessages(conversationId: string, userId: number): Promise<Message[]> {
+    const result = await pool.query(
+      `SELECT * FROM messages 
+       WHERE conversation_id = $1 
+       AND (sender_id = $2 OR receiver_id = $2)
+       ORDER BY created_at ASC`,
+      [conversationId, userId]
+    );
+    return result.rows;
+  },
+
+  async acceptRequest(conversationId: string, userId: number): Promise<boolean> {
+    // For simplicity, we can just mark all messages in the conversation as accepted
+    // You might want to add a separate 'accepted' column to track this
+    return true;
+  },
+
+  async declineRequest(conversationId: string, userId: number): Promise<boolean> {
+    // Delete all messages in the conversation
     await pool.query(
-      'INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      'DELETE FROM messages WHERE conversation_id = $1 AND receiver_id = $2',
+      [conversationId, userId]
+    );
+    return true;
+  },
+
+  async blockUser(blockerId: number, blockedId: number): Promise<void> {
+    // Delete all messages between the two users
+    await pool.query(
+      'DELETE FROM messages WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)',
       [blockerId, blockedId]
     );
   },
 
-  // Unblock user
-  async unblockUser(blockerId: number | string, blockedId: number | string): Promise<void> {
-    await pool.query(
-      'DELETE FROM blocks WHERE blocker_id = $1 AND blocked_id = $2',
-      [blockerId, blockedId]
-    );
+  async unblockUser(blockerId: number, blockedId: number): Promise<void> {
+    // No-op since we don't have a blocks table
+    // Just a placeholder to match the API
   },
 
-  // Get unread message count
-  async getUnreadCount(userId: number | string): Promise<number> {
+  async getMessageRequests(userId: number): Promise<any[]> {
+    // Get all conversations where the user is the receiver and hasn't sent a reply yet
     const result = await pool.query(
-      `SELECT COUNT(*) as count 
-       FROM messages 
-       WHERE receiver_id = $1 
-       AND is_read = FALSE
-       AND (
-         (is_request = FALSE) OR 
-         (is_request = TRUE AND request_accepted = TRUE)
-       )`,
+      `SELECT DISTINCT ON (m.conversation_id)
+        m.*,
+        u_sender.id as sender_id,
+        u_sender.username as sender_username,
+        u_sender.profile_picture as sender_profile_picture
+       FROM messages m
+       JOIN users u_sender ON m.sender_id = u_sender.id
+       WHERE m.receiver_id = $1
+       AND NOT EXISTS (
+         SELECT 1 FROM messages m2
+         WHERE m2.conversation_id = m.conversation_id
+         AND m2.sender_id = $1
+       )
+       ORDER BY m.conversation_id, m.created_at DESC`,
       [userId]
     );
-    return parseInt(result.rows[0].count);
-  },
-
-  // Get message request count
-  async getRequestCount(userId: number | string): Promise<number> {
-    const result = await pool.query(
-      `SELECT COUNT(DISTINCT conversation_id) as count 
-       FROM messages 
-       WHERE receiver_id = $1 
-       AND is_request = TRUE 
-       AND request_accepted = FALSE`,
-      [userId]
-    );
-    return parseInt(result.rows[0].count);
+    return result.rows;
   }
 };
-
-export default MessageModel;

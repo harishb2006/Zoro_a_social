@@ -2,71 +2,107 @@ import pool from '../postgres';
 
 export interface Post {
   id: number;
-  caption: string;
-  location: string;
-  tags: string;
+  caption?: string;
+  location?: string;
+  tags?: string;
+  imageurl?: string;
+  videourl?: string;
+  likes?: number;
+  saves?: number;
   created_by: number;
-  image_url: string | null;
-  video_url: string | null;
-  likes: number;
-  saves: number;
-  created_at: Date;
-  updated_at: Date;
+  created_at?: Date;
 }
 
 export const PostModel = {
-  async create(data: {
-    caption: string;
-    location?: string;
-    tags?: string;
-    created_by: number;
-    image_url?: string | null;
-    video_url?: string | null;
-  }): Promise<Post> {
+  async findAll(): Promise<Post[]> {
+    const result = await pool.query('SELECT * FROM posts ORDER BY created_at DESC');
+    return result.rows;
+  },
+
+  async findById(id: number): Promise<Post | null> {
+    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  },
+
+  async findByUserId(userId: number): Promise<Post[]> {
+    const result = await pool.query('SELECT * FROM posts WHERE created_by = $1 ORDER BY created_at DESC', [userId]);
+    return result.rows;
+  },
+
+  async create(post: Omit<Post, 'id' | 'created_at' | 'likes' | 'saves'>): Promise<Post> {
     const result = await pool.query(
-      `INSERT INTO posts (caption, location, tags, created_by, image_url, video_url) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING *`,
-      [
-        data.caption,
-        data.location || '',
-        data.tags || '',
-        data.created_by,
-        data.image_url || null,
-        data.video_url || null
-      ]
+      `INSERT INTO posts (caption, location, tags, imageurl, videourl, created_by) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [post.caption || null, post.location || null, post.tags || null, post.imageurl || null, post.videourl || null, post.created_by]
     );
     return result.rows[0];
   },
 
-  async findById(id: number | string): Promise<Post | null> {
-    const result = await pool.query(
-      'SELECT * FROM posts WHERE id = $1',
-      [id]
-    );
-    return result.rows[0] || null;
+  async delete(id: number): Promise<boolean> {
+    const result = await pool.query('DELETE FROM posts WHERE id = $1', [id]);
+    return result.rowCount !== null && result.rowCount > 0;
   },
 
-  async findAll(options?: { limit?: number; offset?: number }): Promise<Post[]> {
-    const limit = options?.limit || 100;
-    const offset = options?.offset || 0;
-    
+  async hasLiked(postId: number, userId: number): Promise<boolean> {
     const result = await pool.query(
-      'SELECT * FROM posts ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-      [limit, offset]
+      'SELECT 1 FROM likes WHERE post_id = $1 AND user_id = $2',
+      [postId, userId]
     );
-    return result.rows;
+    return result.rows.length > 0;
   },
 
-  async findByUserId(userId: number | string): Promise<Post[]> {
+  async like(postId: number, userId: number): Promise<void> {
+    await pool.query(
+      'INSERT INTO likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [postId, userId]
+    );
+    await pool.query('UPDATE posts SET likes = likes + 1 WHERE id = $1', [postId]);
+  },
+
+  async unlike(postId: number, userId: number): Promise<void> {
+    await pool.query(
+      'DELETE FROM likes WHERE post_id = $1 AND user_id = $2',
+      [postId, userId]
+    );
+    await pool.query('UPDATE posts SET likes = GREATEST(likes - 1, 0) WHERE id = $1', [postId]);
+  },
+
+  async hasSaved(postId: number, userId: number): Promise<boolean> {
     const result = await pool.query(
-      'SELECT * FROM posts WHERE created_by = $1 ORDER BY created_at DESC',
+      'SELECT 1 FROM saves WHERE post_id = $1 AND user_id = $2',
+      [postId, userId]
+    );
+    return result.rows.length > 0;
+  },
+
+  async save(postId: number, userId: number): Promise<void> {
+    await pool.query(
+      'INSERT INTO saves (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [postId, userId]
+    );
+    await pool.query('UPDATE posts SET saves = saves + 1 WHERE id = $1', [postId]);
+  },
+
+  async unsave(postId: number, userId: number): Promise<void> {
+    await pool.query(
+      'DELETE FROM saves WHERE post_id = $1 AND user_id = $2',
+      [postId, userId]
+    );
+    await pool.query('UPDATE posts SET saves = GREATEST(saves - 1, 0) WHERE id = $1', [postId]);
+  },
+
+  async findSavedByUser(userId: number): Promise<Post[]> {
+    const result = await pool.query(
+      `SELECT p.* FROM posts p
+       INNER JOIN saves s ON p.id = s.post_id
+       WHERE s.user_id = $1
+       ORDER BY s.created_at DESC`,
       [userId]
     );
     return result.rows;
   },
 
-  async findByFollowing(userId: number | string): Promise<Post[]> {
+  async findByFollowing(userId: number): Promise<Post[]> {
     const result = await pool.query(
       `SELECT p.* FROM posts p
        INNER JOIN follows f ON p.created_by = f.following_id
@@ -77,185 +113,22 @@ export const PostModel = {
     return result.rows;
   },
 
-  async findSavedByUser(userId: number | string): Promise<Post[]> {
+  async update(id: number, updates: Partial<Post>): Promise<Post | null> {
+    const fields = Object.keys(updates)
+      .filter(key => key !== 'id' && key !== 'created_at')
+      .map((key, index) => `${key} = $${index + 2}`)
+      .join(', ');
+    
+    if (!fields) return null;
+    
+    const values = Object.entries(updates)
+      .filter(([key]) => key !== 'id' && key !== 'created_at')
+      .map(([, value]) => value);
+    
     const result = await pool.query(
-      `SELECT p.* FROM posts p
-       INNER JOIN post_saves ps ON p.id = ps.post_id
-       WHERE ps.user_id = $1
-       ORDER BY ps.created_at DESC`,
-      [userId]
-    );
-    return result.rows;
-  },
-
-  async update(id: number | string, data: Partial<Post>): Promise<Post | null> {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let paramCount = 1;
-
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'id' && key !== 'created_by') {
-        fields.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
-      }
-    });
-
-    if (fields.length === 0) return null;
-
-    fields.push(`updated_at = CURRENT_TIMESTAMP`);
-    values.push(id);
-
-    const result = await pool.query(
-      `UPDATE posts SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
-      values
+      `UPDATE posts SET ${fields} WHERE id = $1 RETURNING *`,
+      [id, ...values]
     );
     return result.rows[0] || null;
-  },
-
-  async delete(id: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'DELETE FROM posts WHERE id = $1',
-      [id]
-    );
-    return result.rowCount! > 0;
-  },
-
-  async like(postId: number | string, userId: number | string): Promise<void> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // Add like
-      await client.query(
-        'INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [postId, userId]
-      );
-      
-      // Update count
-      await client.query(
-        'UPDATE posts SET likes = (SELECT COUNT(*) FROM post_likes WHERE post_id = $1) WHERE id = $1',
-        [postId]
-      );
-      
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  },
-
-  async unlike(postId: number | string, userId: number | string): Promise<void> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // Remove like
-      await client.query(
-        'DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2',
-        [postId, userId]
-      );
-      
-      // Update count
-      await client.query(
-        'UPDATE posts SET likes = (SELECT COUNT(*) FROM post_likes WHERE post_id = $1) WHERE id = $1',
-        [postId]
-      );
-      
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  },
-
-  async isLikedBy(postId: number | string, userId: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2',
-      [postId, userId]
-    );
-    return result.rows.length > 0;
-  },
-
-  async save(postId: number | string, userId: number | string): Promise<void> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // Add save
-      await client.query(
-        'INSERT INTO post_saves (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [postId, userId]
-      );
-      
-      // Update count
-      await client.query(
-        'UPDATE posts SET saves = (SELECT COUNT(*) FROM post_saves WHERE post_id = $1) WHERE id = $1',
-        [postId]
-      );
-      
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  },
-
-  async unsave(postId: number | string, userId: number | string): Promise<void> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // Remove save
-      await client.query(
-        'DELETE FROM post_saves WHERE post_id = $1 AND user_id = $2',
-        [postId, userId]
-      );
-      
-      // Update count
-      await client.query(
-        'UPDATE posts SET saves = (SELECT COUNT(*) FROM post_saves WHERE post_id = $1) WHERE id = $1',
-        [postId]
-      );
-      
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  },
-
-  async isSavedBy(postId: number | string, userId: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'SELECT 1 FROM post_saves WHERE post_id = $1 AND user_id = $2',
-      [postId, userId]
-    );
-    return result.rows.length > 0;
-  },
-
-  async hasLiked(userId: number | string, postId: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'SELECT 1 FROM post_likes WHERE user_id = $1 AND post_id = $2',
-      [userId, postId]
-    );
-    return result.rows.length > 0;
-  },
-
-  async hasSaved(userId: number | string, postId: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'SELECT 1 FROM post_saves WHERE user_id = $1 AND post_id = $2',
-      [userId, postId]
-    );
-    return result.rows.length > 0;
   }
 };
-
-export default PostModel;

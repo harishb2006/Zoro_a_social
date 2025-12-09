@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import CommentModel from '@/lib/db/models/CommentModel';
+import { CommentService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const comments = await CommentModel.findByPostId(id);
+    const comments = await CommentService.findByPostId(id);
     return NextResponse.json(comments);
   } catch (error: any) {
     console.error('Get comments error:', error);
@@ -33,8 +33,11 @@ export async function POST(
       return NextResponse.json({ message: 'Comment text is required' }, { status: 400 });
     }
 
-    const newComment = await CommentModel.create(id, authUser.id, comment.trim());
-
+    const newComment = await CommentService.create({
+      post_id: id,
+      user_id: authUser.id,
+      text: comment.trim()
+    });
     return NextResponse.json(newComment, { status: 201 });
   } catch (error: any) {
     console.error('Create comment error:', error);

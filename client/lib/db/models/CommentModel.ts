@@ -4,52 +4,34 @@ export interface Comment {
   id: number;
   post_id: number;
   user_id: number;
-  comment: string;
-  created_at: Date;
-}
-
-export interface CommentWithUser extends Comment {
-  username: string;
+  text: string;
+  created_at?: Date;
 }
 
 export const CommentModel = {
-  async create(postId: number | string, userId: number | string, comment: string): Promise<Comment> {
+  async findByPostId(postId: number): Promise<Comment[]> {
     const result = await pool.query(
-      `INSERT INTO comments (post_id, user_id, comment) 
-       VALUES ($1, $2, $3) 
-       RETURNING *`,
-      [postId, userId, comment]
-    );
-    return result.rows[0];
-  },
-
-  async findByPostId(postId: number | string): Promise<CommentWithUser[]> {
-    const result = await pool.query(
-      `SELECT c.*, u.username 
+      `SELECT c.*, u.username, u.profile_picture 
        FROM comments c
-       INNER JOIN users u ON c.user_id = u.id
-       WHERE c.post_id = $1
+       LEFT JOIN users u ON c.user_id = u.id
+       WHERE c.post_id = $1 
        ORDER BY c.created_at DESC`,
       [postId]
     );
     return result.rows;
   },
 
-  async countByPostId(postId: number | string): Promise<number> {
+  async create(comment: Omit<Comment, 'id' | 'created_at'>): Promise<Comment> {
     const result = await pool.query(
-      'SELECT COUNT(*) as count FROM comments WHERE post_id = $1',
-      [postId]
+      `INSERT INTO comments (post_id, user_id, text) 
+       VALUES ($1, $2, $3) RETURNING *`,
+      [comment.post_id, comment.user_id, comment.text]
     );
-    return parseInt(result.rows[0].count);
+    return result.rows[0];
   },
 
-  async delete(id: number | string): Promise<boolean> {
-    const result = await pool.query(
-      'DELETE FROM comments WHERE id = $1',
-      [id]
-    );
-    return result.rowCount! > 0;
+  async delete(id: number): Promise<boolean> {
+    const result = await pool.query('DELETE FROM comments WHERE id = $1', [id]);
+    return result.rowCount !== null && result.rowCount > 0;
   }
 };
-
-export default CommentModel;

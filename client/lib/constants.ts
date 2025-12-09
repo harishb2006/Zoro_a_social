@@ -53,8 +53,10 @@ export interface Post {
 
 export interface Comment {
   id: string;
+  user_id: string;
   comment: string;
   username?: string | null;
+  created_at?: string;
 }
 
 // Legacy support - keep old names pointing to new ones

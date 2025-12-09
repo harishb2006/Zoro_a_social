@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import UserModel from '@/lib/db/models/UserModel';
-import { buildTokenPayload, generateToken } from '@/lib/auth/jwt';
+import connectDB from '@/lib/db/mongodb';
+import User from '@/lib/db/models/User';
+import { generateToken } from '@/lib/auth/jwt';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB();
+    
     const body = await req.json();
     const { username, email, password } = body;
 
@@ -17,7 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const existingUser = await UserModel.findByEmail(normalizedEmail);
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return NextResponse.json(
         { message: 'Email already in use' },
@@ -25,10 +29,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newUser = await UserModel.create(username, normalizedEmail, password);
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await User.create({
+      username,
+      email: normalizedEmail,
+      password: hashedPassword
+    });
 
     const token = generateToken({
-      id: newUser.id.toString(),
+      id: newUser._id.toString(),
       username: newUser.username,
       email: newUser.email,
     });
@@ -36,7 +46,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json(
       {
         message: 'User created successfully',
-        user: { id: newUser.id.toString(), username: newUser.username },
+        user: { id: newUser._id.toString(), username: newUser.username },
       },
       { status: 201 }
     );

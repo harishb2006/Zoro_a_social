@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import PostModel from '@/lib/db/models/PostModel';
+import { PostService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 
 export async function PUT(
@@ -16,18 +16,18 @@ export async function PUT(
     const userId = authUser.id;
 
     // Check if already saved
-    const isSaved = await PostModel.hasSaved(userId, id);
+    const isSaved = await PostService.hasSaved(id, userId);
 
     if (isSaved) {
       // Unsave
-      await PostModel.unsave(id, userId);
+      await PostService.unsave(id, userId);
       return NextResponse.json({
         message: 'Post removed from saved',
         saved: false,
       });
     } else {
       // Save
-      await PostModel.save(id, userId);
+      await PostService.save(id, userId);
       return NextResponse.json({
         message: 'Post saved',
         saved: true,

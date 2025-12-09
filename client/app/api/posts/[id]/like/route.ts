@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import PostModel from '@/lib/db/models/PostModel';
+import { PostService } from '@/lib/db/services';
 import { authenticate } from '@/lib/auth/middleware';
 
 export async function PUT(
@@ -16,18 +16,18 @@ export async function PUT(
     const userId = authUser.id;
 
     // Check if already liked
-    const isLiked = await PostModel.hasLiked(userId, id);
+    const isLiked = await PostService.hasLiked(id, userId);
 
     if (isLiked) {
       // Unlike
-      await PostModel.unlike(id, userId);
+      await PostService.unlike(id, userId);
       return NextResponse.json({
         message: 'Post unliked',
         liked: false,
       });
     } else {
       // Like
-      await PostModel.like(id, userId);
+      await PostService.like(id, userId);
       return NextResponse.json({
         message: 'Post liked',
         liked: true,
