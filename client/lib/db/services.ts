@@ -219,10 +219,15 @@ export const CommentService = {
 export const MessageService = {
   async getConversations(userId: string) {
     await connectDB();
+    
+    // Get all unique conversations for the user - optimized with lean()
     const messages = await Message.aggregate([
       {
         $match: {
-          $or: [{ sender_id: new mongoose.Types.ObjectId(userId) }, { receiver_id: new mongoose.Types.ObjectId(userId) }]
+          $or: [
+            { sender_id: new mongoose.Types.ObjectId(userId) },
+            { receiver_id: new mongoose.Types.ObjectId(userId) }
+          ]
         }
       },
       { $sort: { createdAt: -1 } },
@@ -231,13 +236,14 @@ export const MessageService = {
           _id: '$conversation_id',
           lastMessage: { $first: '$$ROOT' }
         }
-      }
+      },
+      { $limit: 50 } // Limit to last 50 conversations
     ]);
 
     const conversations = await Promise.all(messages.map(async (m) => {
       const msg = m.lastMessage;
       const otherId = msg.sender_id.toString() === userId ? msg.receiver_id : msg.sender_id;
-      const otherUser = await User.findById(otherId).select('username profile_picture');
+      const otherUser = await User.findById(otherId).select('username profile_picture').lean();
       
       return {
         id: msg._id.toString(),
@@ -258,7 +264,9 @@ export const MessageService = {
   async getMessages(conversationId: string, userId: string) {
     await connectDB();
     const messages = await Message.find({ conversation_id: conversationId })
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1 })
+      .limit(100) // Limit to last 100 messages
+      .lean();
     
     return messages.map(m => ({
       id: m._id.toString(),
@@ -288,60 +296,8 @@ export const MessageService = {
   async markAsRead(conversationId: string, userId: string) {
     await connectDB();
     await Message.updateMany(
-      { conversation_id: conversationId, receiver_id: userId },
+      { conversation_id: conversationId, receiver_id: userId, is_read: false },
       { is_read: true }
     );
-  },
-
-  async blockUser(blockerId: string, blockedId: string) {
-    await connectDB();
-    await Message.deleteMany({
-      $or: [
-        { sender_id: blockerId, receiver_id: blockedId },
-        { sender_id: blockedId, receiver_id: blockerId }
-      ]
-    });
-  },
-
-  async getMessageRequests(userId: string) {
-    await connectDB();
-    // Get conversations where user is receiver and hasn't sent a reply
-    const conversations = await Message.aggregate([
-      {
-        $match: { receiver_id: new mongoose.Types.ObjectId(userId) }
-      },
-      {
-        $group: {
-          _id: '$conversation_id',
-          firstMessage: { $first: '$$ROOT' }
-        }
-      }
-    ]);
-
-    const requests = await Promise.all(conversations.map(async (conv) => {
-      const msg = conv.firstMessage;
-      const sender = await User.findById(msg.sender_id).select('username profile_picture');
-      
-      // Check if user has replied
-      const hasReplied = await Message.findOne({
-        conversation_id: conv._id,
-        sender_id: userId
-      });
-
-      if (!hasReplied) {
-        return {
-          id: msg._id.toString(),
-          sender_id: sender?._id.toString(),
-          sender_username: sender?.username,
-          sender_profile_picture: sender?.profile_picture,
-          message: msg.message,
-          conversation_id: conv._id,
-          created_at: msg.createdAt,
-        };
-      }
-      return null;
-    }));
-
-    return requests.filter(r => r !== null);
   },
 };

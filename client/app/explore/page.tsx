@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Sidebar from '@/components/Navbar';
-import CulturalEntity from '@/components/CulturalEntity';
+import ZoroEntity from '@/components/ZoroEntity';
+import { PostCardSkeleton } from '@/components/LoadingSkeleton';
 import {
   API_ROUTES,
   CultureItem,
@@ -58,7 +59,7 @@ export default function ExplorePage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try {
       await axios.delete(API_ROUTES.deletePost(id), { withCredentials: true });
       setCultures((prev) => prev.filter((culture) => culture.id !== id));
@@ -66,7 +67,7 @@ export default function ExplorePage() {
     } catch {
       // no-op
     }
-  };
+  }, []);
 
   const handleFollowToggle = async (userId: string) => {
     try {
@@ -146,13 +147,15 @@ export default function ExplorePage() {
 
           {/* Posts Feed */}
           {loading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-orange-500" />
+            <div className="space-y-6">
+              {[1, 2, 3].map((i) => (
+                <PostCardSkeleton key={i} />
+              ))}
             </div>
           ) : filteredCultures.length > 0 ? (
             <div className="space-y-6">
               {filteredCultures.map((culture) => (
-                <CulturalEntity
+                <ZoroEntity
                   key={culture.id}
                   {...culture}
                   onDelete={handleDelete}

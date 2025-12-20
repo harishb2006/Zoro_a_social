@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       },
       lastMessage: conv.message,
       lastMessageAt: conv.created_at,
-      unreadCount: conv.is_read ? 0 : (conv.last_message_sender_id !== user.id ? 1 : 0)
+      unreadCount: !conv.is_read && conv.last_message_sender_id !== user.id ? 1 : 0
     }));
     
     return NextResponse.json(conversations);
@@ -41,9 +41,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    console.log('Send message request body:', body);
-    console.log('Authenticated user:', user.id);
-    
     const { receiverId, content } = body;
 
     if (!receiverId || !content || content.trim() === '') {
@@ -52,8 +49,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    console.log('Sending message from', user.id, 'to', receiverId);
 
     // Create conversation ID (smaller ID first for consistency)
     const ids = [user.id, receiverId].sort();
@@ -67,11 +62,9 @@ export async function POST(req: NextRequest) {
       is_read: false
     });
 
-    console.log('Message sent successfully:', message);
     return NextResponse.json(message, { status: 201 });
   } catch (error: any) {
     console.error('Send message error:', error);
-    console.error('Error stack:', error.stack);
-    return NextResponse.json({ message: error.message, error: error.toString() }, { status: 500 });
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

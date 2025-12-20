@@ -33,7 +33,7 @@ const colorOptions = [
   'bg-cyan-500',
 ];
 
-export default function CulturalEntity({
+export default function ZoroEntity({
   id,
   caption,
   location,
@@ -319,24 +319,45 @@ export default function CulturalEntity({
             )}
           </div>
         </div>
-        <button type="button" onClick={() => setShowOptions(!showOptions)} className="text-gray-900">
-          <FaEllipsisH />
-        </button>
-        {showOptions && (
-          <div className="absolute right-4 mt-32 w-32 bg-white border border-gray-300 rounded-md shadow-lg z-10">
-            <button onClick={() => router.push(`/form/${id}`)} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">Edit</button>
-            <button onClick={() => onDelete(id)} className="block w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-gray-100">Delete</button>
-          </div>
+        {isOwnPost && (
+          <>
+            <button type="button" onClick={() => setShowOptions(!showOptions)} className="text-gray-900">
+              <FaEllipsisH />
+            </button>
+            {showOptions && (
+              <div className="absolute right-4 mt-32 w-32 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                <button onClick={() => router.push(`/form/${id}`)} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">Edit</button>
+                <button onClick={() => onDelete(id)} className="block w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-gray-100">Delete</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Media */}
       {displayImage && (
         <div className="relative w-full" style={{ aspectRatio: '1/1' }}>
-          <Image src={assetUrl(displayImage) || '/images/photo-1585607344893-43a4bd91169a.png'} alt={displayCaption} fill className="object-cover" sizes="100vw" />
+          <Image 
+            src={assetUrl(displayImage) || '/images/photo-1585607344893-43a4bd91169a.png'} 
+            alt={displayCaption} 
+            fill 
+            className="object-cover" 
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            loading="lazy"
+            quality={85}
+          />
         </div>
       )}
-      {displayVideo && <video src={assetUrl(displayVideo) || undefined} controls className="w-full" style={{ maxHeight: '600px' }} />}
+      {displayVideo && (
+        <video 
+          src={assetUrl(displayVideo) || undefined} 
+          controls 
+          className="w-full" 
+          style={{ maxHeight: '600px' }}
+          preload="metadata"
+          playsInline
+        />
+      )}
 
       {/* Actions */}
       <div className="px-4 py-3 flex items-center gap-4">

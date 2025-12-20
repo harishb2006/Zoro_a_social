@@ -1,8 +1,8 @@
-## List of Unique Indian Cultures
+## Zoro - Indian Culture Platform
 
 
 
-Welcome to the **"List of weird Indian cultures"**. This is a hands-on project where we will build a complete web application using the MERN stack (MongoDB, Express.js, React.js, and Node.js). The goal is to learn how to develop a full-stack web application and create a better application.
+Welcome to **Zoro**. This is a hands-on project where we will build a complete web application using the MERN stack (MongoDB, Express.js, React.js, and Node.js). The goal is to learn how to develop a full-stack web application and create a better application.
 
 ## Features
 
@@ -50,9 +50,9 @@ Combining cultural exploration with full-stack development, this platform showca
 
 ## Deployed Link
 
-https://s76-weird-indian-cultures.onrender.com
+https://zoro-app.onrender.com
 
 
 ## Frontend deployed link
 
-https://asapindian.pages.dev/
+https://zoro.pages.dev/

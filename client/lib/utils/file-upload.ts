@@ -20,7 +20,7 @@ export async function uploadToCloudinary(
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         resource_type: resourceType,
-        folder: 'cultura_connect',
+        folder: 'zoro',
         transformation: resourceType === 'image' 
           ? [{ width: 1000, height: 1000, crop: 'limit', quality: 'auto' }]
           : [{ width: 1920, height: 1080, crop: 'limit', quality: 'auto' }],

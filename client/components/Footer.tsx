@@ -34,9 +34,8 @@ export default function Footer() {
             >
               <div>
                 <h3 className="mb-4 text-3xl font-bold text-white">
-                  India{' '}
                   <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                    Culture
+                    Zoro
                   </span>
                 </h3>
                 <motion.div
@@ -48,8 +47,8 @@ export default function Footer() {
                 />
               </div>
               <p className="max-w-md leading-relaxed text-gray-300">
-                Welcome to India Culture, a platform dedicated to celebrating India&apos;s rich
-                cultural heritage! From vibrant festivals and traditional arts to diverse cuisines
+                Welcome to Zoro, a platform dedicated to celebrating India&apos;s rich
+                heritage! From vibrant festivals and traditional arts to diverse cuisines
                 and historical wonders, we bring you an immersive experience of India&apos;s
                 traditions.
               </p>

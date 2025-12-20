@@ -7,7 +7,7 @@ import ToastContainer from '@/components/ToastContainer';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Cultura Connect',
+  title: 'Zoro',
   description: 'Celebrate and explore the richness of Indian culture.',
 };
 

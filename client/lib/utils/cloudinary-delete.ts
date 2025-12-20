@@ -2,8 +2,8 @@ import cloudinary from '../cloudinary';
 
 /**
  * Extract the public ID from a Cloudinary URL
- * Example: https://res.cloudinary.com/djvqpzwgi/image/upload/v1234567890/cultura_connect/abc123.jpg
- * Returns: cultura_connect/abc123
+ * Example: https://res.cloudinary.com/djvqpzwgi/image/upload/v1234567890/zoro/abc123.jpg
+ * Returns: zoro/abc123
  */
 export function extractPublicId(url: string): string | null {
   try {
