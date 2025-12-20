@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import axios from 'axios';
 import {
   FaArchway,
@@ -10,7 +11,8 @@ import {
   FaVideo,
 } from 'react-icons/fa';
 import Sidebar from '@/components/Navbar';
-import CulturalEntity from '@/components/CulturalEntity';
+import ZoroEntity from '@/components/ZoroEntity';
+import { PostCardSkeleton, UserCardSkeleton } from '@/components/LoadingSkeleton';
 import {
   API_ROUTES,
   CultureItem,
@@ -41,10 +43,12 @@ export default function HomePage() {
     if (hasFollowing !== null) {
       fetchCultures();
       
-      // Real-time polling for posts every 15 seconds
+      // Polling only when tab is visible - every 30 seconds (less aggressive)
       const interval = setInterval(() => {
-        fetchCultures(selectedUser);
-      }, 15000);
+        if (document.visibilityState === 'visible') {
+          fetchCultures(selectedUser);
+        }
+      }, 30000); // 30 seconds
       
       return () => clearInterval(interval);
     }
@@ -115,7 +119,7 @@ export default function HomePage() {
     fetchCultures(userId);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try {
       await axios.delete(API_ROUTES.deletePost(id), { withCredentials: true });
       setCultures((prev) => prev.filter((culture) => culture.id !== id));
@@ -123,7 +127,7 @@ export default function HomePage() {
     } catch {
       // no-op
     }
-  };
+  }, []);
 
   const handleFollowToggle = async (userId: string) => {
     try {
@@ -191,8 +195,10 @@ export default function HomePage() {
 
           {/* Posts Feed */}
           {loading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-orange-500" />
+            <div className="space-y-6">
+              {[1, 2, 3].map((i) => (
+                <PostCardSkeleton key={i} />
+              ))}
             </div>
           ) : !hasFollowing && filteredCultures.length === 0 ? (
             <div className="text-center py-10">
@@ -212,22 +218,22 @@ export default function HomePage() {
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Welcome to Instagram!
+                Welcome to Zoro!
               </h2>
               <p className="text-gray-500 mb-6 max-w-md mx-auto">
                 Follow people to see their photos and videos in your feed.
               </p>
-              <button
-                onClick={() => router.push('/explore')}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600"
+              <Link
+                href="/explore"
+                className="inline-block px-6 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors"
               >
                 Explore
-              </button>
+              </Link>
             </div>
           ) : filteredCultures.length > 0 ? (
             <div className="space-y-6">
               {filteredCultures.map((culture) => (
-                <CulturalEntity
+                <ZoroEntity
                   key={culture.id}
                   {...culture}
                   onDelete={handleDelete}

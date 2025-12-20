@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import axios from 'axios';
 import Image from 'next/image';
 import { FaUser, FaCog } from 'react-icons/fa';
 import { BsGrid3X3 } from 'react-icons/bs';
 import Sidebar from '@/components/Navbar';
+import { PostCardSkeleton } from '@/components/LoadingSkeleton';
 import { API_ROUTES } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -44,7 +46,7 @@ export default function ProfilePage() {
     fetchProfile();
   }, [userId]);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get(`/api/users/${userId}`, { withCredentials: true });
@@ -61,7 +63,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, user, isOwnProfile]);
 
   const handleFollowToggle = async () => {
     if (isFollowing) {
@@ -125,8 +127,24 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-white">
         <Sidebar />
-        <div className="flex md:ml-64 items-center justify-center h-screen">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-orange-500" />
+        <div className="md:ml-64">
+          <div className="max-w-4xl mx-auto px-4 py-8">
+            <div className="space-y-6">
+              <div className="flex items-start gap-8">
+                <div className="h-32 w-32 md:h-40 md:w-40 rounded-full bg-gray-200 animate-pulse" />
+                <div className="flex-1 space-y-4">
+                  <div className="h-8 bg-gray-200 rounded w-48 animate-pulse" />
+                  <div className="h-4 bg-gray-200 rounded w-64 animate-pulse" />
+                  <div className="h-4 bg-gray-200 rounded w-32 animate-pulse" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-1 mt-8">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="aspect-square bg-gray-200 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -155,7 +173,15 @@ export default function ProfilePage() {
             <div className="flex-shrink-0">
               {profile.profilePic ? (
                 <div className="relative h-32 w-32 md:h-40 md:w-40 rounded-full overflow-hidden border border-gray-300">
-                  <Image src={profile.profilePic} alt={profile.username} fill className="object-cover" />
+                  <Image 
+                    src={profile.profilePic} 
+                    alt={profile.username} 
+                    fill 
+                    className="object-cover" 
+                    sizes="(max-width: 768px) 128px, 160px"
+                    priority
+                    quality={90}
+                  />
                 </div>
               ) : (
                 <div className="h-32 w-32 md:h-40 md:w-40 rounded-full bg-gradient-to-br from-orange-400 to-pink-400 flex items-center justify-center">
@@ -169,12 +195,12 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4 mb-4">
                 <h1 className="text-xl md:text-2xl font-light">{profile.username}</h1>
                 {isOwnProfile ? (
-                  <button
-                    onClick={() => router.push('/profile/edit')}
-                    className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-semibold"
+                  <Link
+                    href="/profile/edit"
+                    className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-semibold inline-block"
                   >
                     Edit Profile
-                  </button>
+                  </Link>
                 ) : (
                   <>
                     <button
@@ -249,10 +275,10 @@ export default function ProfilePage() {
             {profile.posts.length > 0 ? (
               <div className="grid grid-cols-3 gap-1 md:gap-4">
                 {profile.posts.map((post) => (
-                  <div
+                  <Link
                     key={post.id}
-                    onClick={() => router.push(`/home`)}
-                    className="relative aspect-square bg-gray-100 cursor-pointer group overflow-hidden"
+                    href="/home"
+                    className="relative aspect-square bg-gray-100 cursor-pointer group overflow-hidden block"
                   >
                     {post.imageUrl ? (
                       <Image
@@ -260,11 +286,15 @@ export default function ProfilePage() {
                         alt="Post"
                         fill
                         className="object-cover"
+                        sizes="(max-width: 768px) 33vw, 25vw"
+                        loading="lazy"
+                        quality={75}
                       />
                     ) : post.videoUrl ? (
                       <video
                         src={post.videoUrl}
                         className="w-full h-full object-cover"
+                        preload="metadata"
                       />
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -279,7 +309,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

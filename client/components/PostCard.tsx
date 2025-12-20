@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import axios from 'axios';
@@ -14,7 +14,7 @@ type Props = Post & {
 
 const colorOptions = ['bg-orange-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500', 'bg-cyan-500'];
 
-export default function PostCard({
+function PostCard({
   id,
   caption,
   location,
@@ -54,12 +54,12 @@ export default function PostCard({
         setComments([]);
       }
     };
-    fetchComments();
     
-    // Real-time polling for comments every 10 seconds
-    const interval = setInterval(fetchComments, 10000);
-    return () => clearInterval(interval);
-  }, [id]);
+    // Only fetch once initially, not continuous polling
+    if (showComments) {
+      fetchComments();
+    }
+  }, [id, showComments]);
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -158,7 +158,10 @@ export default function PostCard({
             alt={caption || 'Post image'} 
             fill 
             className="object-cover" 
-            sizes="100vw" 
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority={false}
+            loading="lazy"
+            quality={85}
           />
         </div>
       )}
@@ -167,7 +170,8 @@ export default function PostCard({
           src={assetUrl(videoUrl)} 
           controls 
           className="w-full" 
-          style={{ maxHeight: '600px' }} 
+          style={{ maxHeight: '600px' }}
+          preload="metadata"
         />
       )}
 
@@ -231,3 +235,12 @@ export default function PostCard({
     </div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(PostCard, (prevProps, nextProps) => {
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.likes === nextProps.likes &&
+    prevProps.likedByCurrentUser === nextProps.likedByCurrentUser
+  );
+});

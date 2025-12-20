@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Sidebar from '@/components/Navbar';
-import CulturalEntity from '@/components/CulturalEntity';
+import ZoroEntity from '@/components/ZoroEntity';
 import { API_ROUTES, CultureItem } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -83,13 +83,15 @@ export default function SavedPage() {
 
           {/* Saved Posts */}
           {loadingPosts ? (
-            <div className="flex justify-center py-10">
-              <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-orange-500" />
+            <div className="flex justify-center items-center py-10 gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+              <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+              <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
             </div>
           ) : savedPosts.length > 0 ? (
             <div className="space-y-6">
               {savedPosts.map((post) => (
-                <CulturalEntity
+                <ZoroEntity
                   key={post.id}
                   {...post}
                   onDelete={handleDelete}

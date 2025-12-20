@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { API_ROUTES } from '@/lib/constants';
@@ -32,7 +32,7 @@ export default function CreatePost({ postId }: { postId?: string }) {
     }
   }, [postId]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImage(file);
@@ -40,9 +40,9 @@ export default function CreatePost({ postId }: { postId?: string }) {
       setVideo(null);
       setVideoPreview(null);
     }
-  };
+  }, []);
 
-  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setVideo(file);
@@ -50,7 +50,7 @@ export default function CreatePost({ postId }: { postId?: string }) {
       setImage(null);
       setImagePreview(null);
     }
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

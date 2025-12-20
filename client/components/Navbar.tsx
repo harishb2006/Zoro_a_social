@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Home,
   Search,
@@ -56,24 +57,24 @@ export default function Sidebar() {
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex lg:flex-col fixed left-0 top-0 h-screen w-64 xl:w-72 border-r border-gray-200 bg-white z-50 px-3 py-8">
         {/* Logo */}
-        <button
-          onClick={() => navigate('/home')}
+        <Link
+          href="/home"
           className="flex items-center gap-3 px-3 mb-8 group"
         >
          
           <span className="text-2xl font-bold bg-gradient-to-r bg-black bg-clip-text text-transparent">
             Zoro
           </span>
-        </button>
+        </Link>
 
         {/* Menu Items */}
         <nav className="flex-1 space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
-              <button
+              <Link
                 key={item.label}
-                onClick={() => navigate(item.path)}
+                href={item.path}
                 className="flex items-center gap-4 w-full px-3 py-3 rounded-xl text-gray-700 hover:bg-gray-50 transition-all group"
               >
                 <Icon 
@@ -81,29 +82,29 @@ export default function Sidebar() {
                   strokeWidth={2}
                 />
                 <span className="text-[15px] font-medium">{item.label}</span>
-              </button>
+              </Link>
             );
           })}
 
           {/* Profile */}
           {isAuthenticated ? (
-            <button
-              onClick={() => navigate(`/profile/${user?.id}`)}
+            <Link
+              href={`/profile/${user?.id}`}
               className="flex items-center gap-4 w-full px-3 py-3 rounded-xl text-gray-700 hover:bg-gray-50 transition-all group"
             >
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#743bc0] to-[#5a2ea0] flex items-center justify-center text-white text-xs font-semibold group-hover:scale-110 transition-transform">
                 {user?.username?.charAt(0).toUpperCase() || 'U'}
               </div>
               <span className="text-[15px] font-medium">Profile</span>
-            </button>
+            </Link>
           ) : (
-            <button
-              onClick={() => navigate('/login')}
+            <Link
+              href="/login"
               className="flex items-center gap-4 w-full px-3 py-3 rounded-xl text-gray-700 hover:bg-gray-50 transition-all group"
             >
               <User className="w-6 h-6 stroke-[2] group-hover:scale-110 transition-transform" />
               <span className="text-[15px] font-medium">Login</span>
-            </button>
+            </Link>
           )}
         </nav>
 
@@ -136,43 +137,43 @@ export default function Sidebar() {
       {/* Mobile Bottom Nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 px-2 py-2">
         <div className="flex items-center justify-around max-w-md mx-auto">
-          <button
-            onClick={() => navigate('/home')}
+          <Link
+            href="/home"
             className="flex flex-col items-center justify-center p-2 text-gray-700 hover:text-gray-900 transition-colors"
           >
             <Home className="w-6 h-6 stroke-[2]" />
-          </button>
+          </Link>
 
-          <button
-            onClick={() => navigate('/form')}
+          <Link
+            href="/form"
             className="flex flex-col items-center justify-center p-2 text-gray-700 hover:text-gray-900 transition-colors"
           >
             <PlusSquare className="w-6 h-6 stroke-[2]" />
-          </button>
+          </Link>
 
-          <button
-            onClick={() => navigate('/messages')}
+          <Link
+            href="/messages"
             className="flex flex-col items-center justify-center p-2 text-gray-700 hover:text-gray-900 transition-colors"
           >
             <MessageCircle className="w-6 h-6 stroke-[2]" />
-          </button>
+          </Link>
 
           {isAuthenticated ? (
-            <button
-              onClick={() => navigate(`/profile/${user?.id}`)}
+            <Link
+              href={`/profile/${user?.id}`}
               className="flex flex-col items-center justify-center p-2"
             >
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#743bc0] to-[#5a2ea0] flex items-center justify-center text-white text-xs font-semibold">
                 {user?.username?.charAt(0).toUpperCase() || 'U'}
               </div>
-            </button>
+            </Link>
           ) : (
-            <button
-              onClick={() => navigate('/login')}
+            <Link
+              href="/login"
               className="flex flex-col items-center justify-center p-2 text-gray-700 hover:text-gray-900 transition-colors"
             >
               <User className="w-6 h-6 stroke-[2]" />
-            </button>
+            </Link>
           )}
         </div>
       </nav>

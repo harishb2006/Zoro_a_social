@@ -52,7 +52,7 @@ export default function LoginPage() {
           <div className="absolute inset-0 z-0">
             <Image 
               src="/images/insta2.jpg"
-              alt="Cultura Connect showcase"
+              alt="Zoro showcase"
               fill
               className="object-cover"
               priority
@@ -62,12 +62,12 @@ export default function LoginPage() {
           </div>
 
           <div className="relative z-10 mb-8">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4 text-gray-300">Cultura Connect</p>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-4 text-gray-300">Zoro</p>
             <h1 className="text-5xl font-serif mb-6 leading-tight">
               Discover <br /> Indian <br /> Cultures
             </h1>
             <p className="text-gray-300 text-sm leading-relaxed max-w-md">
-              Connect with diverse Indian traditions, share unique cultural experiences, and celebrate our heritage together.
+              Connect with diverse Indian traditions, share unique experiences, and celebrate our heritage together.
             </p>
           </div>
         </div>
@@ -149,7 +149,11 @@ export default function LoginPage() {
                 className="w-full bg-black text-white py-3 rounded-lg font-medium text-sm hover:bg-gray-800 transition-colors disabled:opacity-70 flex justify-center items-center h-12"
               >
                 {loading ? (
-                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                  </div>
                 ) : 'Sign In'}
               </button>
 
